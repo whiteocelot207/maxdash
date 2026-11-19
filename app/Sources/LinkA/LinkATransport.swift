@@ -36,12 +36,12 @@ final class LinkATransport: NSObject {
     }
 
     @objc private func accessoryDidConnect(_ note: Notification) {
-        guard let acc = note.userInfo?.[EAAccessoryKey] as? EAAccessory else { return }
+        guard let acc = note.userInfo?[EAAccessoryKey] as? EAAccessory else { return }
         if acc.protocolStrings.contains(Self.protocolString) { open(accessory: acc) }
     }
 
     @objc private func accessoryDidDisconnect(_ note: Notification) {
-        guard let acc = note.userInfo?.[EAAccessoryKey] as? EAAccessory else { return }
+        guard let acc = note.userInfo?[EAAccessoryKey] as? EAAccessory else { return }
         if acc === currentAccessory {
             close()
             onState?("Dash terputus")
