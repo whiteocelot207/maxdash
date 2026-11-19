@@ -9,7 +9,7 @@ final class RideNavigator: NSObject, ObservableObject {
     @Published var status: String = "Mencari dash…"
 
     private let transport = LinkATransport()
-    private let session: LinkASession
+    private var session: LinkASession!
     private let renderer = DashRenderer()
     private let location = CLLocationManager()
     private let provider: RouteProvider = AppleMapsRouteProvider()
@@ -22,11 +22,18 @@ final class RideNavigator: NSObject, ObservableObject {
     private var timer: Timer?
 
     override init() {
-        session = LinkASession { [weak self] frame in self?.transport.send(frame) }
         super.init()
-        transport.onFrame = { [weak self] frame in self?.handleBike(frame) }
+        session = LinkASession { [weak self] frame in
+            guard let self = self else { return }
+            self.transport.send(frame)
+        }
+        transport.onFrame = { [weak self] frame in
+            guard let self = self else { return }
+            self.handleBike(frame)
+        }
         transport.onState = { [weak self] s in
-            DispatchQueue.main.async { self?.status = s }
+            guard let self = self else { return }
+            DispatchQueue.main.async { self.status = s }
         }
         location.delegate = self
         location.desiredAccuracy = kCLLocationAccuracyBest
@@ -36,6 +43,8 @@ final class RideNavigator: NSObject, ObservableObject {
     }
 
     func start() {
+        // Saat berjalan sebagai test host (XCTest), jangan aktifkan lokasi/EA/timer.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return }
         transport.start()
         location.requestAlwaysAuthorization()
         location.startUpdatingLocation()
