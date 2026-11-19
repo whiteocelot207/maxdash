@@ -25,7 +25,7 @@ final class VectorTests: XCTestCase {
     // MARK: - Util
 
     private func hex(_ data: Data) -> String {
-        data.map { String(format: "%02X", $0) }.joined(separator: " ")
+        data.map { String(format: "%02X", Int($0)) }.joined(separator: " ")
     }
 
     private func data(fromHex s: String) -> Data {
@@ -93,7 +93,7 @@ final class VectorTests: XCTestCase {
                         let want = (value as? [Any])?.compactMap { int($0) } ?? []
                         let gotArr = (got as? [Int]) ?? []
                         XCTAssertEqual(gotArr, want, "means.screen \(id)")
-                    } else if CFGetTypeID(value as CFTypeRef) == CFBooleanGetTypeID() {
+                    } else if CFGetTypeID(value as AnyObject) == CFBooleanGetTypeID() {
                         let wantBool = value as? Bool ?? false
                         XCTAssertEqual(got as? Bool, wantBool, "means.\(key) \(id)")
                     } else if let wantStr = value as? String {
@@ -117,7 +117,7 @@ final class VectorTests: XCTestCase {
             guard b.count >= 16 else { return [:] }
             let part = String(bytes: b[0..<12].map { $0 ^ 0x0A }, encoding: .ascii) ?? ""
             let key = b[12..<16].map { $0 ^ 0x0A }
-            let keyHex = key.map { String(format: "%02X", $0) }.joined(separator: " ")
+            let keyHex = key.map { String(format: "%02X", Int($0)) }.joined(separator: " ")
             let screen = LinkASession.screenForPart(part)
             return ["part_number": part, "key_hex": keyHex, "screen": [screen.width, screen.height]]
         case 55:

@@ -46,9 +46,8 @@ private struct BerandaView: View {
                     HStack { statusDot(on: false); Text("GPS") }
                 }
                 Section("Bensin") {
-                    let fuel = FuelCalculator()
-                    LabeledContent("Sisa bensin", value: String(format: "%.1f L", fuel.litersRemaining))
-                    LabeledContent("Sisa jarak", value: "± \(Int(fuel.rangeKm)) km")
+                    LabeledContent("Sisa bensin", value: String(format: "%.1f L", FuelCalculator().litersRemaining))
+                    LabeledContent("Sisa jarak", value: "± \(Int(FuelCalculator().rangeKm)) km")
                 }
                 Section("Perawatan terdekat") {
                     LabeledContent("Oli mesin", value: "dalam 320 km")

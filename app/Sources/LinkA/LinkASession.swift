@@ -85,10 +85,10 @@ final class LinkASession {
         // cmd 17: f32 LE limit, u8 panjang, "km/h"
         var limit = Data(count: 9)
         let bits = speedLimit.bitPattern.littleEndian
-        limit[0] = UInt8(bits & 0xFF)
-        limit[1] = UInt8((bits >> 8) & 0xFF)
-        limit[2] = UInt8((bits >> 16) & 0xFF)
-        limit[3] = UInt8((bits >> 24) & 0xFF)
+        limit[0] = UInt8(truncatingIfNeeded: bits)
+        limit[1] = UInt8(truncatingIfNeeded: bits >> 8)
+        limit[2] = UInt8(truncatingIfNeeded: bits >> 16)
+        limit[3] = UInt8(truncatingIfNeeded: bits >> 24)
         limit[4] = 4
         let unit = Array("km/h".utf8)
         for i in 0..<unit.count { limit[5 + i] = unit[i] }
@@ -108,9 +108,9 @@ final class LinkASession {
     static func mapFrame(jpeg: Data, frameID: UInt16, mode: UInt8 = 0x03) -> LinkAFrame {
         var payload = Data(count: 3)
         payload[0] = mode
-        payload[1] = UInt8(frameID & 0xFF)
-        payload[2] = UInt8((frameID >> 8) & 0xFF)
-        payload.append(jpeg)
+        payload[1] = UInt8(truncatingIfNeeded: frameID)
+        payload[2] = UInt8(truncatingIfNeeded: frameID >> 8)
+        payload.append(contentsOf: jpeg)
         return LinkAFrame(command: 0, flag: 1, payload: payload)
     }
 }

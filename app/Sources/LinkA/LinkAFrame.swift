@@ -40,22 +40,22 @@ struct LinkAFrame {
         head[5] = direction
         head[6] = command
         let len = UInt32(payload.count)
-        head[7] = UInt8(len & 0xFF)
-        head[8] = UInt8((len >> 8) & 0xFF)
-        head[9] = UInt8((len >> 16) & 0xFF)
-        head[10] = UInt8((len >> 24) & 0xFF)
+        head[7] = UInt8(truncatingIfNeeded: len)
+        head[8] = UInt8(truncatingIfNeeded: len >> 8)
+        head[9] = UInt8(truncatingIfNeeded: len >> 16)
+        head[10] = UInt8(truncatingIfNeeded: len >> 24)
         head[11] = flag
 
         var body = head
-        body.append(payload)
+        body.append(contentsOf: payload)
         let crc = CRC32MPEG2.compute(body)
 
         var out = head
-        out.append(UInt8(crc & 0xFF))
-        out.append(UInt8((crc >> 8) & 0xFF))
-        out.append(UInt8((crc >> 16) & 0xFF))
-        out.append(UInt8((crc >> 24) & 0xFF))
-        out.append(payload)
+        out.append(UInt8(truncatingIfNeeded: crc))
+        out.append(UInt8(truncatingIfNeeded: crc >> 8))
+        out.append(UInt8(truncatingIfNeeded: crc >> 16))
+        out.append(UInt8(truncatingIfNeeded: crc >> 24))
+        out.append(contentsOf: payload)
         return out
     }
 

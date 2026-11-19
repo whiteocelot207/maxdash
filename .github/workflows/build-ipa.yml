@@ -27,13 +27,22 @@ jobs:
         working-directory: app
         run: brew install xcodegen && xcodegen generate
 
+      - name: Pilih simulator iPhone yang tersedia
+        id: sim
+        working-directory: app
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          if [ -z "$UDID" ]; then echo "Tidak ada simulator iPhone tersedia"; exit 1; fi
+          echo "iPhone simulator: $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
       - name: Vector tests (WAJIB lulus sebelum ke motor)
         working-directory: app
         run: |
           xcodebuild test \
             -project Maxdash.xcodeproj \
             -scheme Maxdash \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResults \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
