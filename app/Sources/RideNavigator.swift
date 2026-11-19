@@ -252,7 +252,7 @@ final class RideNavigator: NSObject, ObservableObject {
 
         // Data HP (baterai & volume) + panel data yang dipilih.
         phoneBattery = Double(max(0, UIDevice.current.batteryLevel) * 100)
-        phoneVolume = Double(AVAudioSession.shared().outputVolume * 100)
+        phoneVolume = Double(AVAudioSession.sharedInstance().outputVolume * 100)
         let fuel = FuelCalculator(tankLiters: 13.2, levelPercent: fuelLevelPercent, consumption: 22)
         let readouts = selectedSlots.map {
             DataSlotReader.read($0, fuel: fuel, speedKmh: bikeSpeedKmh, battery: phoneBattery,
