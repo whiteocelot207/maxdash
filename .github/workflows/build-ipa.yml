@@ -39,12 +39,22 @@ jobs:
       - name: Vector tests (WAJIB lulus sebelum ke motor)
         working-directory: app
         run: |
+          set -o pipefail
           xcodebuild test \
             -project Maxdash.xcodeproj \
             -scheme Maxdash \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResults \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | tee test.log
+
+      - name: Ringkasan error (jika gagal)
+        if: failure()
+        working-directory: app
+        run: |
+          echo "=== Baris yang mengandung 'error:' ==="
+          grep -n "error:" test.log | head -40 || true
+          echo "=== 40 baris terakhir log ==="
+          tail -40 test.log || true
 
       - name: Build aplikasi (unsigned)
         working-directory: app

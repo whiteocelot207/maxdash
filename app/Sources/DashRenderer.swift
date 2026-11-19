@@ -81,7 +81,7 @@ struct DashRenderer {
     }
 
     private func drawText(_ s: String, at pt: CGPoint, size: CGFloat, color: CGColor, context: CGContext) {
-        let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, size, nil)
+        guard let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, size, nil) else { return }
         let attrs: [CFString: Any] = [kCTFontAttributeName: font, kCTForegroundColorAttributeName: color]
         guard let attr = CFAttributedStringCreate(nil, s as CFString, attrs as CFDictionary) else { return }
         let line = CTLineCreateWithAttributedString(attr)

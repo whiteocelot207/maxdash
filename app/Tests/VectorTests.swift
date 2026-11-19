@@ -153,7 +153,7 @@ final class VectorTests: XCTestCase {
             emitted.append([
                 "command": Int(frame.command),
                 "flag": Int(frame.flag),
-                "payload_hex": hex(frame.payload)
+                "payload_hex": self.hex(frame.payload)
             ])
         }
 
