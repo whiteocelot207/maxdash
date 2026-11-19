@@ -1,10 +1,12 @@
+
 name: build-ipa
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Serialkan run agar versi tidak bentrok (push cepat tidak membuat versi kembar).
+# Mencegah dua build membuat versi yang sama.
 concurrency:
   group: maxdash-release
   cancel-in-progress: false
@@ -12,65 +14,109 @@ concurrency:
 jobs:
   build:
     runs-on: macos-latest
+
     permissions:
       contents: write
+
     steps:
-      - uses: actions/checkout@v4
+      # ==========================================
+      # 1. CHECKOUT REPOSITORY
+      # ==========================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Tentukan versi (naikkan digit terakhir otomatis)
+      # ==========================================
+      # 2. AUTO VERSIONING
+      # ==========================================
+      - name: Tentukan versi otomatis
         id: ver
         run: |
           LATEST=$(git tag --list 'v*' --sort=-v:refname | head -1)
+
           if [ -z "$LATEST" ]; then
             NEXT="0.1.0"
           else
             BASE="${LATEST#v}"
+
             MAJOR=$(echo "$BASE" | cut -d. -f1)
             MINOR=$(echo "$BASE" | cut -d. -f2)
             PATCH=$(echo "$BASE" | cut -d. -f3)
-            if [ "${{ github.event_name }}" = "push" ]; then
-              PATCH=$((PATCH + 1))
-            fi
+
+            PATCH=$((PATCH + 1))
+
             NEXT="${MAJOR}.${MINOR}.${PATCH}"
           fi
-          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
-          echo "Versi build: $NEXT (tag terakhir: ${LATEST:-tidak ada})"
 
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+
+          echo "================================"
+          echo "Latest tag : ${LATEST:-Tidak ada}"
+          echo "Next version: $NEXT"
+          echo "================================"
+
+      # ==========================================
+      # 3. INSTALL XCODEGEN
+      # ==========================================
       - name: Generate Xcode project (XcodeGen)
         working-directory: app
-        run: brew install xcodegen && xcodegen generate
+        run: |
+          brew install xcodegen
+          xcodegen generate
 
+      # ==========================================
+      # 4. SELECT IPHONE SIMULATOR
+      # ==========================================
       - name: Pilih simulator iPhone
         id: sim
         working-directory: app
         run: |
           UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
-          if [ -z "$UDID" ]; then echo "Tidak ada simulator iPhone"; exit 1; fi
+
+          if [ -z "$UDID" ]; then
+            echo "Tidak ada simulator iPhone"
+            exit 1
+          fi
+
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
+          echo "Selected simulator: $UDID"
+
+      # ==========================================
+      # 5. UNIT TEST
+      # ==========================================
       - name: Vector tests (WAJIB lulus sebelum rilis)
         working-directory: app
         run: |
           set -o pipefail
+
           xcodebuild test \
             -project Maxdash.xcodeproj \
             -scheme Maxdash \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResults \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | tee test.log
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee test.log
 
+      # ==========================================
+      # 6. ERROR SUMMARY
+      # ==========================================
       - name: Ringkasan error (jika gagal)
         if: failure()
         working-directory: app
         run: |
-          echo "=== Baris 'error:' ==="
+          echo "=== Baris error ==="
           grep -n "error:" test.log | head -40 || true
+
           echo "=== 40 baris terakhir ==="
           tail -40 test.log || true
 
+      # ==========================================
+      # 7. BUILD IOS APPLICATION
+      # ==========================================
       - name: Build aplikasi (unsigned)
         working-directory: app
         run: |
@@ -81,27 +127,48 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             MARKETING_VERSION='${{ steps.ver.outputs.next }}' \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
             build
 
+      # ==========================================
+      # 8. PACKAGE IPA
+      # ==========================================
       - name: Package .ipa
         working-directory: app
         run: |
           mkdir -p Payload
+
           cp -R build/Build/Products/Release-iphoneos/Maxdash.app Payload/
+
           zip -qr Maxdash.ipa Payload
 
+          echo "IPA successfully created"
+
+          ls -lh Maxdash.ipa
+
+      # ==========================================
+      # 9. GENERATE SOURCE.JSON
+      # ==========================================
       - name: Buat source.json
         working-directory: app
         run: |
           VER="${{ steps.ver.outputs.next }}"
-          SIZE=$(stat -c%s Maxdash.ipa)
+
+          SIZE=$(wc -c < Maxdash.ipa | tr -d ' ')
+
           DATE=$(date -u +%Y-%m-%d)
+
           REPO="${GITHUB_REPOSITORY}"
+
           DL="https://github.com/${REPO}/releases/download/v${VER}/Maxdash.ipa"
+
           jq -n \
-            --arg ver "$VER" --arg date "$DATE" --arg dl "$DL" \
-            --argjson size "$SIZE" --arg repo "$REPO" \
+            --arg ver "$VER" \
+            --arg date "$DATE" \
+            --arg dl "$DL" \
+            --argjson size "$SIZE" \
+            --arg repo "$REPO" \
             '{
               name: "maxdash",
               identifier: "com.maxdash.app",
@@ -124,21 +191,48 @@ jobs:
                 }]
               }]
             }' > source.json
+
+          echo "=== Generated source.json ==="
+
           cat source.json
 
-      - name: Buat Release (otomatis)
-        if: github.event_name == 'push'
+      # ==========================================
+      # 10. CREATE GITHUB RELEASE
+      # ==========================================
+      - name: Buat GitHub Release otomatis
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.next }}
+          name: Maxdash v${{ steps.ver.outputs.next }}
+          target_commitish: ${{ github.sha }}
           files: |
             app/Maxdash.ipa
             app/source.json
           generate_release_notes: true
           fail_on_unmatched_files: true
 
+      # ==========================================
+      # 11. UPLOAD IPA ARTIFACT
+      # ==========================================
       - name: Upload artefak IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Maxdash-ipa
+          name: Maxdash-ipa-v${{ steps.ver.outputs.next }}
           path: app/Maxdash.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      # ==========================================
+      # 12. BUILD SUMMARY
+      # ==========================================
+      - name: Ringkasan build
+        if: success()
+        run: |
+          echo "================================"
+          echo "MAXDASH BUILD SUCCESS"
+          echo "================================"
+          echo "Version : ${{ steps.ver.outputs.next }}"
+          echo "Tag     : v${{ steps.ver.outputs.next }}"
+          echo "IPA     : Maxdash.ipa"
+          echo "Release : https://github.com/${GITHUB_REPOSITORY}/releases/tag/v${{ steps.ver.outputs.next }}"
+          echo "================================"
