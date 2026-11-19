@@ -60,8 +60,8 @@ struct ContentView: View {
         lastPaste = text
         let result = ShareLink.parse(text)
         if case .redirect(let urlStr) = result {
-            ShareLink.resolveRedirect(urlStr) { [weak self] resolved in
-                guard let self = self, let resolved = resolved else { return }
+            ShareLink.resolveRedirect(urlStr) { resolved in
+                guard let resolved = resolved else { return }
                 self.presentShare(ShareLink.parse(resolved))
             }
         } else {
