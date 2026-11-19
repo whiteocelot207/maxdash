@@ -1,13 +1,27 @@
 name: build-ipa
 on:
   push:
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
+  # Build + jalankan test vektor setiap push / tag / manual.
   build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tentukan versi
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VER="${GITHUB_REF_NAME#v}"
+          else
+            VER=$(tr -d '[:space:]' < VERSION 2>/dev/null)
+          fi
+          [ -z "$VER" ] && VER="0.1.0"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Generate Xcode project (XcodeGen)
         working-directory: app
@@ -32,6 +46,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            MARKETING_VERSION='${{ steps.ver.outputs.version }}' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             build
 
@@ -42,8 +57,68 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/Maxdash.app Payload/
           zip -qr Maxdash.ipa Payload
 
-      - name: Upload IPA
+      - name: Upload artefak IPA
         uses: actions/upload-artifact@v4
         with:
           name: Maxdash-ipa
           path: app/Maxdash.ipa
+
+  # Rilis: hanya saat push tag vX.Y.Z. Membuat GitHub Release + source.json (AltStore/LiveContainer).
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Unduh IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: Maxdash-ipa
+          path: .
+
+      - name: Buat source.json
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          SIZE=$(stat -c%s Maxdash.ipa)
+          DATE=$(date -u +%Y-%m-%d)
+          REPO="${GITHUB_REPOSITORY}"
+          DL="https://github.com/${REPO}/releases/download/v${VER}/Maxdash.ipa"
+          jq -n \
+            --arg ver "$VER" \
+            --arg date "$DATE" \
+            --arg dl "$DL" \
+            --argjson size "$SIZE" \
+            --arg repo "$REPO" \
+            '{
+              name: "maxdash",
+              identifier: "com.maxdash.app",
+              website: ("https://github.com/" + $repo),
+              apps: [{
+                name: "maxdash",
+                bundleIdentifier: "com.maxdash.app",
+                version: $ver,
+                versionDate: $date,
+                versionDescription: ("maxdash " + $ver),
+                downloadURL: $dl,
+                size: $size,
+                versions: [{
+                  version: $ver,
+                  buildVersion: "1",
+                  releaseDate: $date,
+                  downloadURL: $dl,
+                  size: $size,
+                  localizedDescription: ("maxdash " + $ver)
+                }]
+              }]
+            }' > source.json
+          echo "--- source.json ---"; cat source.json
+
+      - name: Buat GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Maxdash.ipa
+            source.json
+          generate_release_notes: true
+          fail_on_unmatched_files: true
