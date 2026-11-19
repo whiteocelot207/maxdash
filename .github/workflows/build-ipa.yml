@@ -2,41 +2,56 @@ name: build-ipa
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
+# Serialkan run agar versi tidak bentrok (push cepat tidak membuat versi kembar).
+concurrency:
+  group: maxdash-release
+  cancel-in-progress: false
+
 jobs:
-  # Build + jalankan test vektor setiap push / tag / manual.
   build:
     runs-on: macos-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Tentukan versi
+      - name: Tentukan versi (naikkan digit terakhir otomatis)
         id: ver
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            VER="${GITHUB_REF_NAME#v}"
+          LATEST=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST" ]; then
+            NEXT="0.1.0"
           else
-            VER=$(tr -d '[:space:]' < VERSION 2>/dev/null)
+            BASE="${LATEST#v}"
+            MAJOR=$(echo "$BASE" | cut -d. -f1)
+            MINOR=$(echo "$BASE" | cut -d. -f2)
+            PATCH=$(echo "$BASE" | cut -d. -f3)
+            if [ "${{ github.event_name }}" = "push" ]; then
+              PATCH=$((PATCH + 1))
+            fi
+            NEXT="${MAJOR}.${MINOR}.${PATCH}"
           fi
-          [ -z "$VER" ] && VER="0.1.0"
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Versi build: $NEXT (tag terakhir: ${LATEST:-tidak ada})"
 
       - name: Generate Xcode project (XcodeGen)
         working-directory: app
         run: brew install xcodegen && xcodegen generate
 
-      - name: Pilih simulator iPhone yang tersedia
+      - name: Pilih simulator iPhone
         id: sim
         working-directory: app
         run: |
           UDID=$(xcrun simctl list devices available | grep -m1 "iPhone" | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
-          if [ -z "$UDID" ]; then echo "Tidak ada simulator iPhone tersedia"; exit 1; fi
-          echo "iPhone simulator: $UDID"
+          if [ -z "$UDID" ]; then echo "Tidak ada simulator iPhone"; exit 1; fi
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
-      - name: Vector tests (WAJIB lulus sebelum ke motor)
+      - name: Vector tests (WAJIB lulus sebelum rilis)
         working-directory: app
         run: |
           set -o pipefail
@@ -51,9 +66,9 @@ jobs:
         if: failure()
         working-directory: app
         run: |
-          echo "=== Baris yang mengandung 'error:' ==="
+          echo "=== Baris 'error:' ==="
           grep -n "error:" test.log | head -40 || true
-          echo "=== 40 baris terakhir log ==="
+          echo "=== 40 baris terakhir ==="
           tail -40 test.log || true
 
       - name: Build aplikasi (unsigned)
@@ -65,7 +80,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
-            MARKETING_VERSION='${{ steps.ver.outputs.version }}' \
+            MARKETING_VERSION='${{ steps.ver.outputs.next }}' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             build
 
@@ -76,39 +91,17 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/Maxdash.app Payload/
           zip -qr Maxdash.ipa Payload
 
-      - name: Upload artefak IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Maxdash-ipa
-          path: app/Maxdash.ipa
-
-  # Rilis: hanya saat push tag vX.Y.Z. Membuat GitHub Release + source.json (AltStore/LiveContainer).
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Unduh IPA
-        uses: actions/download-artifact@v4
-        with:
-          name: Maxdash-ipa
-          path: .
-
       - name: Buat source.json
+        working-directory: app
         run: |
-          VER="${GITHUB_REF_NAME#v}"
+          VER="${{ steps.ver.outputs.next }}"
           SIZE=$(stat -c%s Maxdash.ipa)
           DATE=$(date -u +%Y-%m-%d)
           REPO="${GITHUB_REPOSITORY}"
           DL="https://github.com/${REPO}/releases/download/v${VER}/Maxdash.ipa"
           jq -n \
-            --arg ver "$VER" \
-            --arg date "$DATE" \
-            --arg dl "$DL" \
-            --argjson size "$SIZE" \
-            --arg repo "$REPO" \
+            --arg ver "$VER" --arg date "$DATE" --arg dl "$DL" \
+            --argjson size "$SIZE" --arg repo "$REPO" \
             '{
               name: "maxdash",
               identifier: "com.maxdash.app",
@@ -131,13 +124,21 @@ jobs:
                 }]
               }]
             }' > source.json
-          echo "--- source.json ---"; cat source.json
+          cat source.json
 
-      - name: Buat GitHub Release
+      - name: Buat Release (otomatis)
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.ver.outputs.next }}
           files: |
-            Maxdash.ipa
-            source.json
+            app/Maxdash.ipa
+            app/source.json
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+      - name: Upload artefak IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Maxdash-ipa
+          path: app/Maxdash.ipa
