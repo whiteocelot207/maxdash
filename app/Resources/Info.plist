@@ -31,6 +31,10 @@
 		<string>com.garmin.navilite.data</string>
 		<string>com.yconnect.data</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>external-accessory</string>

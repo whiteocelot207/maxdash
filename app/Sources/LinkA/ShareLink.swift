@@ -178,18 +178,46 @@ enum ShareLink {
     }
 
     /// Ikuti redirect tautan pendek (mis. maps.app.goo.gl) dan kembalikan URL tujuan (Location).
-    /// Tidak mengikuti redirect lebih dari satu; hanya membaca header Location.
+    /// Berhenti di redirect pertama; membaca header Location.
     static func resolveRedirect(_ urlStr: String, completion: @escaping (String?) -> Void) {
         guard let url = URL(string: urlStr) else { completion(nil); return }
-        let config = URLSessionConfiguration.ephemeral
-        config.httpMaximumRedirects = 0
-        let session = URLSession(configuration: config)
-        var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-        session.dataTask(with: request) { _, response, _ in
-            let loc = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Location")
-            DispatchQueue.main.async { completion(loc) }
-        }.resume()
+        RedirectResolver().resolve(url, completion: completion)
+    }
+
+    private final class RedirectResolver: NSObject, URLSessionDataDelegate {
+        private var completion: ((String?) -> Void)?
+        private var session: URLSession?
+        private var finished = false
+
+        func resolve(_ url: URL, completion: @escaping (String?) -> Void) {
+            self.completion = completion
+            let config = URLSessionConfiguration.ephemeral
+            session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+            var req = URLRequest(url: url)
+            req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            session?.dataTask(with: req).resume()
+        }
+
+        private func finish(_ value: String?) {
+            guard !finished else { return }
+            finished = true
+            let c = completion
+            completion = nil
+            session?.invalidateAndCancel()
+            DispatchQueue.main.async { c?(value) }
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask,
+                        willPerformHTTPRedirection response: HTTPURLResponse,
+                        newRequest request: URLRequest,
+                        completionHandler: @escaping (URLRequest?) -> Void) {
+            completionHandler(nil) // hentikan redirect
+            finish(response.value(forHTTPHeaderField: "Location"))
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            if !finished { finish(nil) }
+        }
     }
 
     private static func regexGroups(_ pattern: String, _ s: String) -> [[String]] {

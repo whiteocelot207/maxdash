@@ -6,6 +6,9 @@ import ExternalAccessory
 final class LinkATransport: NSObject {
     static let protocolString = "com.garmin.navilite.data"
 
+    /// True bila sesi dash terbuka (ada accessory terhubung).
+    private(set) var isConnected = false
+
     private var session: EASession?
     private var inStream: InputStream?
     private var outStream: OutputStream?
@@ -62,10 +65,12 @@ final class LinkATransport: NSObject {
         outStream?.open()
         rxBuffer.removeAll()
         pending.removeAll()
+        isConnected = true
         onState?("Dash terhubung")
     }
 
     func close() {
+        isConnected = false
         inStream?.close()
         inStream?.remove(from: .main, forMode: .common)
         outStream?.close()

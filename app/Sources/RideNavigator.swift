@@ -19,9 +19,20 @@ final class RideNavigator: NSObject, ObservableObject {
     @Published var currentView: DashView = .map
     /// Slot data yang ditampilkan di panel kanan (4 kartu kecil).
     @Published var selectedSlots: [DataSlot] = DataSlot.defaults
+    /// Frame terakhir yang dirender (untuk preview realtime di Home).
+    @Published var previewImage: UIImage?
+    /// Status GPS (untuk chip di Home).
+    @Published var gpsActive = false
+    /// Status koneksi dash (untuk chip di Home).
+    @Published var dashConnected = false
+    /// GPS diaktifkan pengguna.
+    @Published var gpsEnabled = true
 
     private let music = MusicController()
     private var lastPress: Date?
+    private var simulating = false
+    private var simRoute: [CLLocationCoordinate2D] = []
+    private var simIndex = 0
     private var phoneBattery: Double = 0
     private var phoneVolume: Double = 0
     private var odo: Double = 28181
@@ -53,7 +64,10 @@ final class RideNavigator: NSObject, ObservableObject {
         }
         transport.onState = { [weak self] s in
             guard let self = self else { return }
-            DispatchQueue.main.async { self.status = s }
+            DispatchQueue.main.async {
+                self.status = s
+                self.dashConnected = self.transport.isConnected
+            }
         }
         location.delegate = self
         location.desiredAccuracy = kCLLocationAccuracyBest
@@ -68,11 +82,65 @@ final class RideNavigator: NSObject, ObservableObject {
         UIDevice.current.isBatteryMonitoringEnabled = true
         session.speedLimit = defaultSpeedLimit
         transport.start()
-        location.requestAlwaysAuthorization()
-        location.startUpdatingLocation()
+        let gpsOn = UserDefaults.standard.object(forKey: "gpsEnabled") as? Bool ?? true
+        gpsEnabled = gpsOn
+        if gpsOn {
+            location.requestAlwaysAuthorization()
+            location.startUpdatingLocation()
+        }
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.tick()
+        }
+    }
+
+    /// Aktif/nonaktifkan GPS (dari Setting).
+    func setGPS(_ enabled: Bool) {
+        gpsEnabled = enabled
+        if enabled {
+            location.requestAlwaysAuthorization()
+            location.startUpdatingLocation()
+        } else {
+            location.stopUpdatingLocation()
+            gpsActive = false
+        }
+    }
+
+    /// Mode simulasi: buat rute contoh & gerakkan posisi sepanjang rute (untuk uji tanpa berkendara).
+    func startSimulation() {
+        let base = position ?? CLLocationCoordinate2D(latitude: -6.2088, longitude: 106.8456)
+        var pts: [CLLocationCoordinate2D] = []
+        for i in 0..<80 {
+            let dLat = Double(i) * 0.0004
+            let dLng = sin(Double(i) / 12) * 0.0004
+            pts.append(CLLocationCoordinate2D(latitude: base.latitude + dLat, longitude: base.longitude + dLng))
+        }
+        simRoute = pts
+        simIndex = 0
+        simulating = true
+        route = pts
+        position = pts[0]
+        session.beginStreaming()
+        session.roadText = "Simulasi"
+        paused = false
+        ackInFlight = false
+        status = "Simulasi aktif"
+    }
+
+    /// Baca pasteboard (diisi share extension / salin manual) lalu mulai rute.
+    func navigateFromPasteboard() {
+        guard let text = UIPasteboard.general.string, !text.isEmpty else {
+            DispatchQueue.main.async { self.status = "Pasteboard kosong" }
+            return
+        }
+        let result = ShareLink.parse(text)
+        if case .redirect(let urlStr) = result {
+            ShareLink.resolveRedirect(urlStr) { [weak self] resolved in
+                guard let self = self, let resolved = resolved else { return }
+                self.navigate(to: ShareLink.parse(resolved))
+            }
+        } else {
+            navigate(to: result)
         }
     }
 
@@ -173,9 +241,14 @@ final class RideNavigator: NSObject, ObservableObject {
         }
     }
 
-    /// Render & kirim satu frame bila tidak sedang pause dan tidak ada frame yang menunggu ACK.
+    /// Render frame (preview realtime + kirim ke dash bila terhubung & sesi siap).
     private func tick() {
-        guard session.started, !paused, !ackInFlight, let pos = position, route.count > 1 else { return }
+        // Simulasi: gerakkan posisi sepanjang rute.
+        if simulating, simIndex < simRoute.count - 1 {
+            simIndex += 1
+            position = simRoute[simIndex]
+        }
+        guard let pos = position, route.count > 1 else { return }
 
         // Data HP (baterai & volume) + panel data yang dipilih.
         phoneBattery = Double(max(0, UIDevice.current.batteryLevel) * 100)
@@ -195,6 +268,12 @@ final class RideNavigator: NSObject, ObservableObject {
                                          route: route,
                                          center: pos,
                                          music: music.nowPlaying) else { return }
+
+        // Preview realtime di Home.
+        if let img = UIImage(data: jpeg) { previewImage = img }
+
+        // Streaming ke dash: hanya bila terhubung, sesi siap (Home ditekan / simulasi), tidak pause, tidak menunggu ACK.
+        guard transport.isConnected, session.started, !paused, !ackInFlight else { return }
         frameID &+= 1
         if frameID == 0 { frameID = 1 }
         let frame = LinkASession.mapFrame(jpeg: jpeg, frameID: frameID, mode: 0x03)
@@ -205,10 +284,14 @@ final class RideNavigator: NSObject, ObservableObject {
 
 extension RideNavigator: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        if let last = locations.last { position = last.coordinate }
+        if let last = locations.last {
+            position = last.coordinate
+            if !gpsActive { gpsActive = true }
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        gpsActive = false
         DispatchQueue.main.async { self.status = "GPS: \(error.localizedDescription)" }
     }
 

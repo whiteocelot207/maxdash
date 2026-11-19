@@ -97,6 +97,9 @@ final class LinkASession {
         emit(12, 0, Data([0x01, 0x00]))
     }
 
+    /// Paksa mulai streaming (mis. untuk mode simulasi tanpa menunggu 55 dari dash).
+    func beginStreaming() { started = true }
+
     /// Ukuran layar dari nomor part dash.
     static func screenForPart(_ part: String) -> (width: Int, height: Int) {
         if part == "006-B3952-01" { return (480, 234) }
