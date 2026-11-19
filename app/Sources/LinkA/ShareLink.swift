@@ -172,7 +172,9 @@ enum ShareLink {
     }
 
     private static func queryValue(_ comps: URLComponents, _ name: String) -> String? {
-        comps.queryItems?.first { $0.name == name }?.value
+        guard let v = comps.queryItems?.first(where: { $0.name == name })?.value else { return nil }
+        // URLComponents tidak mengubah '+' menjadi spasi (Node/URLSearchParams melakukannya).
+        return v.replacingOccurrences(of: "+", with: " ")
     }
 
     private static func regexGroups(_ pattern: String, _ s: String) -> [[String]] {
