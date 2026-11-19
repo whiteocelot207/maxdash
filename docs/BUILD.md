@@ -22,35 +22,26 @@ untuk build, lalu **Sideloadly** untuk memasang ke iPhone.
 8. Di iPhone: **Settings › General › VPN & Device Management › Trust**; lalu
    **Settings › Privacy & Security › Developer Mode › aktifkan**.
 
-## Mengubah versi
+## Versi (otomatis)
 
-Aturan: digit terakhir bertambah setiap ada perubahan (0.1.0 → 0.1.1).
-Cukup ubah file `VERSION` (mis. `0.1.1`). Workflow akan memakai versi itu untuk
-`MARKETING_VERSION` saat build, dan (saat rilis tag) untuk `source.json`.
-Baris versi di `app/Sources/ContentView.swift` (Settings › Tentang) sebaiknya ikut diperbarui
-agar tampil sama.
+**Tidak perlu mengubah tag manual.** Setiap kali Anda **push ke `main`**, workflow otomatis:
+1. Membaca tag terakhir (mis. `v0.1.0`).
+2. Menambah **digit terakhir** (patch): `0.1.0` → `0.1.1` → `0.1.2` …
+3. Build + test vektor.
+4. Membuat **GitHub Release** baru (tag `vX.Y.Z`) berisi `Maxdash.ipa` + `source.json`.
+
+Push pertama (belum ada tag) membuat `0.1.0`. Build manual (`workflow_dispatch`) tidak menaikkan versi
+dan tidak membuat rilis (hanya untuk coba-coba).
+
+> Karena tiap push ke `main` = rilis baru, editan kecil sekalipun menambah patch. Kalau ingin menahan rilis,
+> cukup jangan push ke `main` dulu.
 
 ## Rilis & LiveContainer
 
-Workflow **build-ipa** punya dua jalur:
-
-- **Push ke `main` / manual** → hanya build + test vektor (tidak membuat rilis).
-- **Push tag `vX.Y.Z`** → build, test, lalu membuat **GitHub Release** berisi:
-  - `Maxdash.ipa`
-  - `source.json` (format AltStore, kompatibel LiveContainer) dengan `version`, `versionDate`,
-    `downloadURL` (menunjuk IPA rilis tersebut), dan `size`.
-
-Cara merilis versi baru (mis. 0.1.1):
-
-1. Ubah `VERSION` → `0.1.1`.
-2. Commit & push ke `main`.
-3. Buat & push tag:
-   ```sh
-   git tag v0.1.1
-   git push origin v0.1.1
-   ```
-   (atau lewat GitHub: **Releases › Draft a new release**, pilih tag `v0.1.1`.)
-4. Tunggu workflow **build-ipa** selesai; rilis akan muncul di **Releases**.
+Setiap push ke `main` menghasilkan **GitHub Release** otomatis berisi:
+- `Maxdash.ipa`
+- `source.json` (format AltStore, kompatibel LiveContainer) dengan `version`, `versionDate`,
+  `downloadURL` (menunjuk IPA rilis tersebut), dan `size`.
 
 **URL source untuk LiveContainer (stabil, selalu rilis terbaru):**
 

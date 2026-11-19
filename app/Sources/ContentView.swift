@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Warna
 extension Color {
@@ -15,6 +16,12 @@ private let accent = Color(hex: 0x2FE0C8)
 // MARK: - Akar
 struct ContentView: View {
     @StateObject private var navigator = RideNavigator()
+    @Environment(\.scenePhase) private var scenePhase
+
+    @State private var pendingShare: ShareResult?
+    @State private var shareName = ""
+    @State private var lastPaste = ""
+    @State private var showShareConfirm = false
 
     var body: some View {
         TabView {
@@ -29,7 +36,55 @@ struct ContentView: View {
         }
         .tint(accent)
         .environmentObject(navigator)
-        .onAppear { navigator.start() }
+        .onAppear {
+            navigator.start()
+            checkPasteboard()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { checkPasteboard() }
+        }
+        .alert("Mulai navigasi ke \(shareName)?", isPresented: $showShareConfirm) {
+            Button("Mulai navigasi") {
+                if let pending = pendingShare { navigator.navigate(to: pending) }
+                UIPasteboard.general.string = ""
+            }
+            Button("Batal", role: .cancel) {}
+        }
+    }
+
+    /// Baca pasteboard (diisi share extension). Jika berisi tautan maps, minta konfirmasi.
+    private func checkPasteboard() {
+        guard let text = UIPasteboard.general.string, !text.isEmpty, text != lastPaste else { return }
+        lastPaste = text
+        let result = ShareLink.parse(text)
+        if case .redirect(let urlStr) = result {
+            ShareLink.resolveRedirect(urlStr) { [weak self] resolved in
+                guard let self = self, let resolved = resolved else { return }
+                self.presentShare(ShareLink.parse(resolved))
+            }
+        } else {
+            presentShare(result)
+        }
+    }
+
+    private func presentShare(_ result: ShareResult) {
+        switch result {
+        case .coords, .query, .directions:
+            pendingShare = result
+            shareName = Self.displayName(result)
+            showShareConfirm = true
+        default:
+            break
+        }
+    }
+
+    static func displayName(_ r: ShareResult) -> String {
+        switch r {
+        case .coords(_, _, let name): return name ?? "titik tujuan"
+        case .query(let q): return q
+        case .directions(let dest, _): return dest.name ?? dest.q ?? "tujuan"
+        default: return "tujuan"
+        }
     }
 }
 
@@ -71,6 +126,7 @@ private struct BerandaView: View {
 // MARK: - Navigasi
 private struct NavigasiView: View {
     @State private var query = ""
+    @EnvironmentObject private var navigator: RideNavigator
     var body: some View {
         NavigationStack {
             List {
@@ -78,7 +134,14 @@ private struct NavigasiView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                         TextField("Cari tujuan atau alamat", text: $query)
+                            .onSubmit { navigator.navigate(toText: query) }
+                            .submitLabel(.search)
                     }
+                    Button("Cari & mulai navigasi") {
+                        navigator.navigate(toText: query)
+                    }
+                    .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .tint(accent)
                     Button {
                         // Tempat berbagi dari Google Maps (share extension) akan muncul di sini.
                     } label: {
@@ -90,6 +153,9 @@ private struct NavigasiView: View {
                     Label("Rumah", systemImage: "house")
                     Label("Kantor", systemImage: "building.2")
                 }
+                Section {
+                    Text(navigator.status).font(.footnote).foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Navigasi")
         }
@@ -99,6 +165,7 @@ private struct NavigasiView: View {
 // MARK: - Motor
 private struct MotorView: View {
     @State private var fuel = FuelCalculator()
+    @EnvironmentObject private var navigator: RideNavigator
 
     var body: some View {
         NavigationStack {
@@ -133,6 +200,7 @@ private struct MotorView: View {
             }
             .navigationTitle("Motor")
         }
+        .onChange(of: fuel.levelPercent) { _, v in navigator.fuelLevelPercent = v }
     }
 
     private func maintenanceRow(_ name: String, _ detail: String, warn: Bool) -> some View {
@@ -149,6 +217,12 @@ private struct PengaturanView: View {
     @AppStorage("accent") private var accentName = "teal"
     @AppStorage("unit") private var unit = "km/jam"
     @AppStorage("defaultDash") private var defaultDash = "peta"
+    @AppStorage("slot1") private var slot1 = DataSlot.defaults[0].rawValue
+    @AppStorage("slot2") private var slot2 = DataSlot.defaults[1].rawValue
+    @AppStorage("slot3") private var slot3 = DataSlot.defaults[2].rawValue
+    @AppStorage("slot4") private var slot4 = DataSlot.defaults[3].rawValue
+    @AppStorage("speedLimit") private var speedLimit = 60
+    @EnvironmentObject private var navigator: RideNavigator
     var body: some View {
         NavigationStack {
             List {
@@ -173,7 +247,21 @@ private struct PengaturanView: View {
                     LabeledContent("Gaya peta", value: "Vektor CPU")
                 }
                 Section("Motor") {
-                    Stepper("Batas kecepatan default: \(Int(60))", value: .constant(60), in: 30...120)
+                    Stepper("Batas kecepatan default: \(speedLimit)", value: $speedLimit, in: 30...120)
+                }
+                Section("Kotak Data") {
+                    Picker("Kartu 1", selection: $slot1) {
+                        ForEach(DataSlot.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                    }
+                    Picker("Kartu 2", selection: $slot2) {
+                        ForEach(DataSlot.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                    }
+                    Picker("Kartu 3", selection: $slot3) {
+                        ForEach(DataSlot.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                    }
+                    Picker("Kartu 4", selection: $slot4) {
+                        ForEach(DataSlot.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                    }
                 }
                 Section("Tentang") {
                     LabeledContent("Versi", value: "0.1.0")
@@ -187,5 +275,22 @@ private struct PengaturanView: View {
             }
             .navigationTitle("Setting")
         }
+        .onChange(of: defaultDash) { _, v in
+            switch v {
+            case "speedo": navigator.currentView = .speedo
+            case "musik": navigator.currentView = .music
+            default: navigator.currentView = .map
+            }
+        }
+        .onChange(of: slot1) { _, _ in updateSlots() }
+        .onChange(of: slot2) { _, _ in updateSlots() }
+        .onChange(of: slot3) { _, _ in updateSlots() }
+        .onChange(of: slot4) { _, _ in updateSlots() }
+        .onChange(of: speedLimit) { _, v in navigator.defaultSpeedLimit = Float(v) }
+        .onAppear { updateSlots() }
+    }
+
+    private func updateSlots() {
+        navigator.selectedSlots = [slot1, slot2, slot3, slot4].compactMap { DataSlot(rawValue: $0) }
     }
 }

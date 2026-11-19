@@ -177,6 +177,21 @@ enum ShareLink {
         return v.replacingOccurrences(of: "+", with: " ")
     }
 
+    /// Ikuti redirect tautan pendek (mis. maps.app.goo.gl) dan kembalikan URL tujuan (Location).
+    /// Tidak mengikuti redirect lebih dari satu; hanya membaca header Location.
+    static func resolveRedirect(_ urlStr: String, completion: @escaping (String?) -> Void) {
+        guard let url = URL(string: urlStr) else { completion(nil); return }
+        let config = URLSessionConfiguration.ephemeral
+        config.httpMaximumRedirects = 0
+        let session = URLSession(configuration: config)
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        session.dataTask(with: request) { _, response, _ in
+            let loc = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Location")
+            DispatchQueue.main.async { completion(loc) }
+        }.resume()
+    }
+
     private static func regexGroups(_ pattern: String, _ s: String) -> [[String]] {
         guard let re = try? NSRegularExpression(pattern: pattern) else { return [] }
         let ns = s as NSString

@@ -60,21 +60,26 @@ final class ShareViewController: UIViewController {
             completion(nil); return
         }
         for item in items {
+            // 1) Attachment URL / teks biasa.
             for provider in item.attachments ?? [] {
-                if provider.hasItemConformingToTypeIdentifier("public.url") {
-                    provider.loadItem(forTypeIdentifier: "public.url", options: nil) { data, _ in
-                        let s = (data as? URL)?.absoluteString
-                        DispatchQueue.main.async { completion(s) }
+                for type in ["public.url", "public.plain-text", "public.utf8-plain-text", "public.text"] {
+                    if provider.hasItemConformingToTypeIdentifier(type) {
+                        provider.loadItem(forTypeIdentifier: type, options: nil) { data, _ in
+                            let s: String?
+                            if let url = data as? URL { s = url.absoluteString }
+                            else if let str = data as? String { s = str }
+                            else if let str = data as? NSString { s = str as String }
+                            else { s = nil }
+                            DispatchQueue.main.async { completion(s) }
+                        }
+                        return
                     }
-                    return
                 }
-                if provider.hasItemConformingToTypeIdentifier("public.plain-text") {
-                    provider.loadItem(forTypeIdentifier: "public.plain-text", options: nil) { data, _ in
-                        let s = data as? String
-                        DispatchQueue.main.async { completion(s) }
-                    }
-                    return
-                }
+            }
+            // 2) Fallback: teks berformat (biasanya berisi nama + tautan).
+            if let s = item.attributedContentText?.string, !s.isEmpty {
+                completion(s)
+                return
             }
         }
         DispatchQueue.main.async { completion(nil) }
