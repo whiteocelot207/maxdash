@@ -50,12 +50,7 @@ targets:
     sources:
       - path: Tests/VectorTests.swift
       - path: Tests/FuelTests.swift
-    resources:
-      - path: Tests/crc.json
-      - path: Tests/frames.json
-      - path: Tests/link-a-commands.json
-      - path: Tests/handshake-nmax-turbo.json
-      - path: Tests/share-links.json
+      - path: Tests/VectorData.swift
     dependencies:
       - target: Maxdash
     settings:

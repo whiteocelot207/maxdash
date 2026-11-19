@@ -9,12 +9,10 @@ final class VectorTests: XCTestCase {
     // MARK: - Muat vektor
 
     private func loadJSON(_ name: String) -> [String: Any] {
-        let bundle = Bundle(for: type(of: self))
-        guard let url = bundle.url(forResource: name, withExtension: "json") else {
+        guard let json = VectorData.raw(name), let data = json.data(using: .utf8) else {
             XCTFail("vektor tidak ditemukan: \(name).json")
             return [:]
         }
-        let data = try! Data(contentsOf: url)
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
     }
 
@@ -145,7 +143,10 @@ final class VectorTests: XCTestCase {
     // MARK: - 4) Handshake (sesi)
 
     func testHandshake() {
-        let vec = vectors("handshake-nmax-turbo")[0]
+        guard let vec = vectors("handshake-nmax-turbo").first else {
+            XCTFail("vektor handshake kosong")
+            return
+        }
         let steps = (vec["input"] as? [String: Any])?["steps"] as? [[String: Any]] ?? []
 
         var emitted: [[String: Any]] = []
