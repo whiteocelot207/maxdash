@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=480">
+<title>Dash: speedometer</title>
+<link rel="stylesheet" href="dash.css">
+</head>
+<body>
+<!-- Tampilan speedometer: kecepatan besar di tengah, rambu batas kecepatan ditangani dash (data-limit). -->
+<main class="dash" data-road="Jl. Sudirman" data-limit="60" data-native-sign>
+  <div class="speedo">
+    <svg class="gauge" viewBox="0 0 250 176" aria-hidden="true">
+      <circle cx="125" cy="125" r="88" fill="none" stroke="var(--d-raised)" stroke-width="14"
+        stroke-linecap="round" stroke-dasharray="369 553" transform="rotate(150 125 125)"/>
+      <circle cx="125" cy="125" r="88" fill="none" stroke="var(--d-route)" stroke-width="14"
+        stroke-linecap="round" stroke-dasharray="232 553" transform="rotate(150 125 125)"/>
+    </svg>
+    <div class="big" data-keep="kecepatan">82</div>
+    <div class="unit" data-keep="satuan">km/jam</div>
+    <div class="gear" data-keep="gigi"><b>3</b><span>gigi</span></div>
+    <div class="foot" data-keep="info">
+      <span>Bensin <b>62%</b></span>
+      <span class="muted">Sisa <b>46 km</b></span>
+    </div>
+  </div>
+</main>
+<script src="frame.js"></script>
+</body>

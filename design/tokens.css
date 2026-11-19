@@ -1,0 +1,65 @@
+/* maxdash — token desain (tema "XMAX Cyan").
+   Hitam pekat, flat, aksen teal-cyan untuk rute & sorotan. Ubah file ini untuk mengganti
+   seluruh warna aplikasi sekaligus. Mode day/night untuk dash ada di blok .dash di bawah. */
+
+:root {
+  /* aplikasi ponsel (gelap) */
+  --ground: #000000;
+  --surface: #16181d;
+  --raised: #23262d;
+  --rule: #2c2f36;
+  --text: #ffffff;
+  --muted: #9aa0a8;
+  --accent: #2fe0c8;
+  --accent-2: #2f9bff;
+  --positive: #30d158;
+  --warning: #ff9f0a;
+  --negative: #ff453a;
+  --link: #2f9bff;
+  --radius-card: 14px;
+  --font: -apple-system, "SF Pro Text", "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+/* frame dash: warna tetap per mode, tidak mengikuti tema ponsel (ini JPEG di motor) */
+.dash {
+  --d-ground: #000000;
+  --d-panel: #0e1013;
+  --d-raised: #1c2026;
+  --d-road-major: #2b3038;
+  --d-road-minor: #171a1f;
+  --d-water: #0b1a24;
+  --d-park: #0d1a12;
+  --d-ink: #ffffff;
+  --d-muted: #a8afb7;
+  --d-route: #2fe0c8;
+  --d-route-passed: #4a4f57;
+  --d-me: #ffffff;
+  --d-rail: rgba(0, 0, 0, 0.55);
+  --d-warn: #ffc21a;
+  --d-danger: #ff453a;
+}
+.dash.day {
+  --d-ground: #e9edf0;
+  --d-panel: #ffffff;
+  --d-raised: #dbe0e5;
+  --d-road-major: #b9c0c7;
+  --d-road-minor: #dbe0e5;
+  --d-water: #bcd8e8;
+  --d-park: #d3e0cc;
+  --d-ink: #0b0e11;
+  --d-muted: #4a525a;
+  --d-route: #0aa392;
+  --d-route-passed: #9aa1a8;
+  --d-me: #0b0e11;
+  --d-rail: rgba(11, 14, 17, 0.14);
+  --d-warn: #e0a000;
+  --d-danger: #d70f0f;
+}
+
+/* Tipografi dash: font sistem, semibold untuk yang dibaca saat berkendara. Minimal 16 px. */
+.dash {
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=480">
+<title>Dash: tiba</title>
+<link rel="stylesheet" href="dash.css">
+<style>
+  .dash { background: radial-gradient(60% 120% at 28% 45%, color-mix(in srgb, var(--d-route) 30%, transparent) 0%, transparent 70%), var(--d-ground); }
+  .pin { position: absolute; left: 70px; top: 40px; width: 96px; height: 120px; }
+  .card { padding-left: 190px; }
+</style>
+</head>
+<body>
+<!-- Tiba: rute mengumpul di sekitar pin. Ditampilkan beberapa saat setelah tiba, lalu kembali ke peta. -->
+<main class="dash" data-road="Malioboro">
+  <svg class="pin" viewBox="0 0 96 120" aria-hidden="true" data-keep="pin">
+    <path d="M48 120V72" stroke="var(--d-route)" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="48" cy="42" r="28" fill="none" stroke="var(--d-route)" stroke-width="10"/>
+    <circle cx="48" cy="42" r="9" fill="var(--d-ink)"/>
+  </svg>
+  <div class="card">
+    <div class="t" data-keep="judul">Anda di sini</div>
+    <div class="s" data-keep="tempat">Tugu Jogja</div>
+    <div class="f" data-keep="ringkasan"><b>5.1 km</b> · 15 mnt · 14:51</div>
+  </div>
+</main>
+<script src="frame.js"></script>
+</body>

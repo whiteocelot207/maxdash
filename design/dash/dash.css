@@ -1,0 +1,74 @@
+/* Tata letak halaman dash, diukur di TFT NMAX/XMAX (docs/how-it-works/dash-canvas.md).
+   Frame 480×234 (atau 480×240). Dash menggambar tombol zoom di x 9–49 / y 68–147.5 dan
+   road bar dari y 188 ke bawah; teks tidak boleh ke sana. Peta boleh menutup di bawah keduanya. */
+@import url("../tokens.css");
+
+html, body { margin: 0; background: #000; }
+.dash { position: relative; width: 480px; height: var(--h, 234px); overflow: hidden; background: var(--d-ground); color: var(--d-ink); }
+.dash svg.map { position: absolute; inset: 0; width: 480px; height: 240px; }
+
+/* panel belokan kiri: glyph di atas tombol ＋, jarak di sampingnya, jalan & "lalu" di kanan tombol */
+.panel { position: absolute; left: 0; top: 0; width: 172px; height: 100%; background: var(--d-panel); }
+.dash.day .panel { box-shadow: 1px 0 0 #d8d7d3; }
+.rail { position: absolute; left: -14px; top: 64px; width: 69px; height: 88.5px; border-radius: 12px; background: var(--d-rail); }
+.glyph { position: absolute; left: 10px; top: 6px; width: 50px; height: 58px; }
+.dist { position: absolute; left: 76px; top: 10px; font: 600 36px/44px var(--font); letter-spacing: -0.02em; white-space: nowrap; }
+.dist small { font: 500 16px/1 var(--font); color: var(--d-muted); margin-left: 4px; letter-spacing: 0; }
+.street { position: absolute; left: 60px; top: 80px; width: 104px; font: 600 20px/24px var(--font); }
+.then { position: absolute; left: 60px; top: 136px; width: 108px; display: flex; gap: 5px; align-items: center; font: 500 16px/20px var(--font); color: var(--d-muted); }
+.then svg { width: 18px; height: 18px; flex: none; }
+
+/* kanan atas: chip ETA + bensin */
+.eta { position: absolute; right: 8px; top: 8px; display: flex; gap: 10px; align-items: baseline; padding: 6px 12px; border-radius: 10px; background: var(--d-panel); }
+.dash.day .eta { box-shadow: 0 0 0 1px #d8d7d3 inset; }
+.eta b { font: 600 20px/24px var(--font); }
+.eta span { font: 500 16px/20px var(--font); color: var(--d-muted); }
+
+/* chip bensin + jarak di bawah panel */
+.fuelchip { position: absolute; left: 12px; bottom: calc(100% - 186px + 6px); display: none; }
+
+/* label di peta */
+.label { position: absolute; font: 600 17px/20px var(--font); color: var(--d-ink); text-shadow: 0 0 3px var(--d-ground), 0 0 3px var(--d-ground), 0 0 3px var(--d-ground); white-space: nowrap; }
+.pill { position: absolute; font: 600 17px/20px var(--font); color: #000; background: var(--d-route); padding: 2px 9px; border-radius: 8px; white-space: nowrap; }
+
+/* kartu satu halaman (tiba, siap) */
+.card { position: absolute; inset: 0 0 auto 0; height: 186px; display: grid; align-content: center; padding: 0 24px 0 72px; gap: 6px; }
+.card .t { font: 600 32px/38px var(--font); letter-spacing: -0.01em; }
+.card .s { font: 500 18px/24px var(--font); color: var(--d-muted); }
+.card .f { font: 500 17px/22px var(--font); color: var(--d-muted); margin-top: 8px; }
+.card .f b { color: var(--d-ink); font-weight: 600; }
+
+/* tampilan speedometer: angka besar di tengah, cincin batas kecepatan ditangani dash (data-limit) */
+.speedo { position: absolute; left: 0; top: 0; width: 480px; height: 186px; }
+.speedo .big { position: absolute; left: 132px; top: 34px; font: 700 108px/108px var(--font); letter-spacing: -0.04em; }
+.speedo .unit { position: absolute; left: 138px; top: 140px; font: 600 18px/20px var(--font); color: var(--d-muted); }
+.speedo .gauge { position: absolute; left: 96px; top: 10px; width: 250px; height: 176px; }
+.speedo .gear { position: absolute; left: 392px; top: 34px; width: 66px; text-align: center; }
+.speedo .gear b { font: 700 30px/34px var(--font); }
+.speedo .gear span { display: block; font: 600 14px/16px var(--font); color: var(--d-muted); }
+.speedo .foot { position: absolute; left: 60px; top: 150px; display: flex; gap: 18px; font: 600 17px/20px var(--font); color: var(--d-ink); }
+.speedo .foot .muted { color: var(--d-muted); font-weight: 500; }
+
+/* tampilan musik: sampul + judul + kontrol, semua di atas road bar */
+.music { position: absolute; inset: 0 0 auto 0; height: 186px; display: grid; grid-template-columns: 128px 1fr; gap: 16px; align-items: center; padding: 8px 20px 8px 72px; }
+.music .art { width: 128px; height: 128px; border-radius: 14px; background: var(--d-raised); display: grid; place-items: center; }
+.music .art svg { width: 60px; height: 60px; opacity: 0.7; }
+.music .meta { min-width: 0; }
+.music .ttl { font: 700 24px/28px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music .art2 { font: 500 18px/22px var(--font); color: var(--d-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.music .bar { height: 6px; border-radius: 3px; background: var(--d-raised); margin: 12px 0 8px; position: relative; }
+.music .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 40%; border-radius: 3px; background: var(--d-route); }
+.music .ctrl { display: flex; gap: 18px; align-items: center; }
+.music .ctrl svg { width: 26px; height: 26px; fill: var(--d-ink); }
+.music .time { font: 500 14px/16px var(--font); color: var(--d-muted); display: flex; justify-content: space-between; }
+
+/* Yang digambar dash di atas frame (default tampil agar mockup mirip motor; ?chrome=0 menyembunyikan) */
+.chrome { position: absolute; inset: 0; pointer-events: none; }
+.chrome .bar { position: absolute; left: 0; right: 0; top: 188px; bottom: 0; background: rgba(0, 0, 0, 0.62); color: #fff; font: 600 20px/1 var(--font); display: flex; justify-content: center; align-items: center; gap: 6px; padding-bottom: calc(var(--h, 234px) - 234px); }
+.chrome .bar::before { content: ""; border: 5px solid transparent; border-bottom: 9px solid #fff; border-top: 0; }
+.chrome svg { position: absolute; left: 0; top: 0; width: 480px; height: 234px; }
+.chrome .sign { position: absolute; left: 411px; top: 135px; width: 62px; height: 62px; box-sizing: border-box; border-radius: 50%; border: 6px solid #e0201b; background: #fff; color: #000; display: grid; place-items: center; font: 700 22px/1 var(--font); }
+
+/* ?guides=1 menandai zona larangan teks */
+.guides { position: absolute; inset: 0; pointer-events: none; }
+.guides i { position: absolute; outline: 1px dashed #2f7cf6; background: rgba(47, 124, 246, 0.12); }

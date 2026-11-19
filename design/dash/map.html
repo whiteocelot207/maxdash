@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=480">
+<title>Dash: peta + data</title>
+<link rel="stylesheet" href="dash.css">
+<style>
+/* Map + panel data (kanan). 480×234 / 480×240.
+   - Tombol zoom & road bar digambar dash (chrome) → tidak digambar di sini.
+   - Rambu batas kecepatan digambar sendiri (kotak merah) → tidak menabrak panel kanan.
+   - Semua teks dijaga di area aman (y < 186, x > 56 untuk kiri). */
+.dash{
+  --d-ground:#151a20; --d-block:#1b2229; --d-water:#0c1c2b;
+  --d-road-minor:#2b333c; --d-road-major:#3e4954;
+  --d-route:#f0357c; --d-route-passed:#7b2a49;
+  --d-green:#0b8a5b; --d-card-a:#a05a6d; --d-card-b:#5b3041; --d-card-line:#8f5a6d;
+  --d-ink:#ffffff; --d-muted:#c9d2da;
+  background:#000;
+}
+
+/* Peta */
+.d2-map{ position:absolute; inset:0; width:480px; height:100%; }
+
+/* Kotak belokan (hijau) kiri atas */
+.d2-turn{ position:absolute; left:0; top:0; width:200px; padding:4px 8px;
+  display:grid; grid-template-columns:30px 1fr; column-gap:6px;
+  background:var(--d-green); border-radius:0 0 12px 0; box-shadow:0 2px 6px rgba(0,0,0,.5); }
+.d2-turn .glyph{ grid-column:1; grid-row:1; width:28px; height:32px; color:#fff; }
+.d2-turn .dist{ grid-column:1; grid-row:2; font-size:13px; font-weight:800; line-height:1; white-space:nowrap; }
+.d2-turn .dist small{ font-size:10px; margin-left:1px; }
+.d2-turn .instr{ grid-column:2; grid-row:1 / 3; align-self:center; font-size:14px; font-weight:700; line-height:1.12; }
+
+/* Rambu batas kecepatan (digambar sendiri) */
+.d2-sign{ position:absolute; left:208px; top:6px; width:38px; height:38px; border-radius:50%;
+  border:5px solid #e0201b; background:#fff; color:#000; display:grid; place-items:center;
+  font-weight:800; font-size:16px; box-shadow:0 1px 4px rgba(0,0,0,.6); }
+
+/* Sisa jarak bensin (atas) */
+.d2-fuel{ position:absolute; left:252px; top:10px; display:flex; align-items:center; gap:4px;
+  padding:2px 7px; border-radius:8px; background:rgba(0,0,0,.55); font-size:12px; font-weight:700; color:#fff; }
+.d2-fuel svg{ width:12px; height:14px; }
+
+/* ETA kiri bawah (di atas road bar) */
+.d2-eta{ position:absolute; left:60px; top:158px; display:flex; align-items:center; gap:6px;
+  padding:3px 10px; border-radius:12px; background:var(--d-green);
+  font-size:13px; font-weight:700; line-height:1.2; white-space:nowrap; box-shadow:0 1px 5px rgba(0,0,0,.5); color:#fff; }
+.d2-eta i{ width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,.7); }
+.d2-eta small{ font-size:10px; font-weight:600; opacity:.85; margin-right:2px; }
+
+/* Panel data kanan: 1 besar + 4 kecil */
+.d2-data{ position:absolute; right:6px; top:8px; width:144px; height:174px;
+  display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 42px 42px; gap:4px; }
+.d2-slot{ min-width:0; min-height:0; border-radius:10px; overflow:hidden; }
+.d2-slot.big{ grid-column:1 / 3; display:flex; flex-direction:column; padding:5px 9px;
+  background:linear-gradient(160deg,var(--d-card-a),var(--d-card-b)); border:1px solid rgba(255,255,255,.35); color:#fff; }
+.d2-big .name{ font-size:16px; font-weight:700; line-height:1.1; }
+.d2-big .wx{ display:flex; align-items:center; gap:6px; margin-top:2px; }
+.d2-big .wx b{ font-size:20px; font-weight:600; line-height:1.05; }
+.d2-big .wx svg{ width:22px; height:15px; }
+.d2-big .wxdesc{ font-size:11px; line-height:1.15; }
+.d2-big .odo{ margin-top:auto; font-size:10px; font-weight:600; line-height:1; opacity:.9; }
+.d2-slot.small{ padding:5px 6px 4px; display:flex; flex-direction:column; justify-content:space-between;
+  background:#221519; border:1px solid var(--d-card-line); color:#fff; }
+.d2-small .k{ font-size:9px; line-height:1; opacity:.9; white-space:nowrap; }
+.d2-small .v{ font-size:18px; font-weight:700; line-height:1; white-space:nowrap; }
+.d2-small .v small{ font-size:9px; margin-left:1px; }
+
+/* Label jalan di peta */
+.d2-label{ position:absolute; font-size:10px; font-weight:600; color:#d9b48a; letter-spacing:.2px;
+  text-shadow:0 0 3px #000, 0 0 3px #000; }
+</style>
+</head>
+<body>
+<!-- Laju: belokan berikutnya 1,5 km. Rambu batas kecepatan digambar sendiri (tidak pakai cmd 17). -->
+<main class="dash" data-road="Jl. Gatotkaca">
+
+  <!-- Peta -->
+  <svg class="d2-map" viewBox="0 0 480 234" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect x="0" y="0" width="480" height="234" fill="var(--d-ground)"/>
+    <!-- blok bangunan -->
+    <g fill="var(--d-block)">
+      <rect x="24" y="30" width="84" height="48"/>
+      <rect x="128" y="30" width="72" height="48"/>
+      <rect x="224" y="30" width="80" height="48"/>
+      <rect x="24" y="100" width="84" height="56"/>
+      <rect x="224" y="100" width="80" height="56"/>
+      <rect x="24" y="180" width="84" height="40"/>
+      <rect x="128" y="180" width="72" height="40"/>
+    </g>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M420 -10C462 40 476 96 476 150S462 226 440 250" stroke="var(--d-water)" stroke-width="26"/>
+      <path d="M0 90H480M0 170H480M118 0V234M214 0V234" stroke="var(--d-road-minor)" stroke-width="7"/>
+      <path d="M180 0V234" stroke="var(--d-road-major)" stroke-width="16"/>
+      <path d="M180 234V150" stroke="var(--d-route-passed)" stroke-width="10"/>
+      <path d="M180 150V0" stroke="var(--d-route)" stroke-width="10"/>
+    </g>
+    <!-- posisi saya -->
+    <circle cx="180" cy="150" r="14" fill="#fff" stroke="var(--d-ground)" stroke-width="3"/>
+    <path d="M180 139l-7 15 7-4 7 4z" fill="#e5322d" stroke="#e5322d" stroke-width="1" stroke-linejoin="round"/>
+  </svg>
+
+  <div class="d2-label" style="left:198px;top:120px" data-keep="label peta">Jl. Melati</div>
+
+  <!-- Kotak belokan -->
+  <div class="d2-turn">
+    <svg class="glyph" viewBox="0 0 50 58" aria-label="Belok sedikit ke kanan" data-keep="ikon belokan">
+      <path d="M14 58V34Q14 22 26 16L36 10" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24 4l14 4-4 14" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="dist" data-keep="jarak">1,5<small>km</small></div>
+    <div class="instr" data-keep="instruksi">Belok sedikit ke kanan</div>
+  </div>
+
+  <!-- Rambu batas kecepatan -->
+  <div class="d2-sign" data-keep="rambu">60</div>
+
+  <!-- Sisa jarak bensin -->
+  <div class="d2-fuel" data-keep="sisa bensin">
+    <svg viewBox="0 0 16 18" aria-hidden="true"><path fill="#f2b705" d="M1 17V3a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14zm1.5-9h6V3h-6zM12 6h1.5a2 2 0 0 1 2 2v6a1 1 0 0 0 2 0V6.5L14.5 4 13.6 5 15 6.5V14h-1V8a.5.5 0 0 0-.5-.5H12z"/></svg>
+    <span>302 km</span>
+  </div>
+
+  <!-- ETA -->
+  <div class="d2-eta" data-keep="eta">
+    <span data-keep="jarak tujuan">5,7 km</span><i></i>
+    <span data-keep="waktu tempuh">0:37</span><i></i>
+    <span><small>tiba</small><b data-keep="waktu tiba">14:44</b></span>
+  </div>
+
+  <!-- Panel data kanan -->
+  <div class="d2-data">
+    <section class="d2-slot big d2-big" data-keep="kartu besar">
+      <div class="name" data-keep="nama">Tantan</div>
+      <div class="wx">
+        <b data-keep="suhu udara">25°</b>
+        <svg viewBox="0 0 26 18" aria-hidden="true"><path fill="#e8e8ee" d="M7 17a5 5 0 0 1-.6-9.96A7 7 0 0 1 19.6 5.6 5.5 5.5 0 0 1 19 17z"/></svg>
+      </div>
+      <div class="wxdesc" data-keep="cuaca">Berawan</div>
+      <div class="odo" data-keep="odo">ODO 28181 km</div>
+    </section>
+
+    <section class="d2-slot small d2-small" data-keep="kartu 1">
+      <div class="k">Baterai HP</div>
+      <div class="v">70<small>%</small></div>
+    </section>
+    <section class="d2-slot small d2-small" data-keep="kartu 2">
+      <div class="k">Sisa bensin</div>
+      <div class="v">8,9<small>L</small></div>
+    </section>
+    <section class="d2-slot small d2-small" data-keep="kartu 3">
+      <div class="k">Suhu mesin</div>
+      <div class="v">86<small>°C</small></div>
+    </section>
+    <section class="d2-slot small d2-small" data-keep="kartu 4">
+      <div class="k">Tegangan</div>
+      <div class="v">12,6<small>V</small></div>
+    </section>
+  </div>
+
+</main>
+<script src="frame.js"></script>
+</body>

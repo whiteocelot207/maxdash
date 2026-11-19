@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=480">
+<title>Dash: siap</title>
+<link rel="stylesheet" href="dash.css">
+<style>
+  .card { padding-left: 72px; }
+  .hint { display: flex; gap: 8px; align-items: center; font: 500 16px/20px var(--font); color: var(--d-muted); margin-top: 10px; }
+  .hint svg { width: 20px; height: 20px; flex: none; }
+</style>
+</head>
+<body>
+<!-- Belum ada rute: layar siap yang tenang. Pengendara membagikan tempat dari Google Maps untuk mulai. -->
+<main class="dash" data-road="Jl. Melati">
+  <div class="card">
+    <div class="t" data-keep="sapaan">Selamat malam</div>
+    <div class="s" data-keep="cuaca">29°C · cerah berawan</div>
+    <div class="hint" data-keep="petunjuk"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11M6 6l4-4 4 4M4 11v6h12v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Bagikan tempat dari Google Maps</div>
+  </div>
+</main>
+<script src="frame.js"></script>
+</body>

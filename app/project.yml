@@ -1,0 +1,78 @@
+name: Maxdash
+options:
+  bundleIdPrefix: com.maxdash
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # Build unsigned; Sideloadly / Xcode akan menandatangani ulang dengan Apple ID Anda.
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+
+targets:
+  # Aplikasi utama
+  Maxdash:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maxdash.app
+        INFOPLIST_FILE: Resources/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - target: MaxdashShare
+        embed: true
+
+  # Share extension: terima tautan Google Maps
+  MaxdashShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Share/ShareViewController.swift
+      - path: Sources/LinkA/ShareLink.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maxdash.app.Share
+        INFOPLIST_FILE: Share/Info.plist
+
+  # Test vektor protokol (wajib lulus sebelum ke motor)
+  MaxdashTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/VectorTests.swift
+      - path: Tests/FuelTests.swift
+    resources:
+      - path: Tests/crc.json
+      - path: Tests/frames.json
+      - path: Tests/link-a-commands.json
+      - path: Tests/handshake-nmax-turbo.json
+      - path: Tests/share-links.json
+    dependencies:
+      - target: Maxdash
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maxdash.app.Tests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Maxdash.app/Maxdash"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  Maxdash:
+    build:
+      targets:
+        Maxdash: all
+        MaxdashShare: all
+        MaxdashTests: [test]
+    test:
+      targets:
+        - MaxdashTests
+      gatherCoverageData: false
