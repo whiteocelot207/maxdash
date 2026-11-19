@@ -1,0 +1,27 @@
+name: build-ipa
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the Xcode project
+        run: brew install xcodegen && xcodegen generate
+      - name: Vector tests
+        run: |
+          xcodebuild test -project MyDash.xcodeproj -scheme MyDashTests \
+            -destination 'platform=iOS Simulator,name=iPhone 16' -quiet
+      - name: Build unsigned app
+        run: |
+          xcodebuild -project MyDash.xcodeproj -scheme MyDash -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package .ipa
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/MyDash.app Payload/
+          zip -qr MyDash.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyDash-ipa
+          path: MyDash.ipa
